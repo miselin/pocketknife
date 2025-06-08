@@ -1,7 +1,3 @@
-project(tests C CXX)
-
-include(GoogleTest)
-
 add_executable(gc_test gc_test.cc)
 
 # Force ASAN for GC tests to catch memory errors

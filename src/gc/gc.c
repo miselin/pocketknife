@@ -174,11 +174,11 @@ int gc_mark(struct gc *gc, void *ptr) {
   }
 
   node->marked = 1;
-  gc->stats.total_marked++;
-
   if (node->marker) {
-    node->marker(gc, ptr);
+    node->marker(gc, gcnode_to_ptr(node));
   }
+
+  gc->stats.total_marked++;
 
   return 1;
 }
@@ -193,7 +193,16 @@ void gc_run(struct gc *gc, struct gc_stats *stats) {
   // Phase 1: Mark
   struct gcroot *current = gc->roots;
   while (current) {
-    gc_mark(gc, gcnode_to_ptr(current->node));
+    struct gcnode *node = current->node;
+    if (!node->marked) {
+      node->marked = 1;
+      gc->stats.total_marked++;
+
+      if (node->marker) {
+        node->marker(gc, gcnode_to_ptr(node));
+      }
+    }
+
     current = current->next;
   }
 
