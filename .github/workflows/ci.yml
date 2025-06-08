@@ -11,9 +11,6 @@ jobs:
         build_type: [Debug, Release]
 
     steps:
-      - name: Install dependencies
-        run: sudo apt-get install -y libbenchmark-dev googletest libgtest-dev libzstd-dev libzstd1 libglib2.0-dev
-
       - uses: lukka/get-cmake@latest
       - uses: actions/checkout@v4
       - run: cmake -E make_directory build
