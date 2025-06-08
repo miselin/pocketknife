@@ -4,3 +4,11 @@ AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: Empty
 ColumnLimit: 100
+IncludeCategories:
+  - Regex:           '^<pocketknife/.*'
+    Priority:        0
+  - Regex:           '<[[:alnum:].]+>'
+    Priority:        1
+  - Regex:           '.*'
+    Priority:        2
+
