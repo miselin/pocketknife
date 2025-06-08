@@ -24,7 +24,6 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
                                    -Wextra
                                    -Wshadow
                                    $<$<COMPILE_LANGUAGE:CXX>:-Wnon-virtual-dtor>
-                                   $<$<COMPILE_LANGUAGE:CXX>:-Wold-style-cast>
                                    -Wcast-align
                                    -Wunused
                                    $<$<COMPILE_LANGUAGE:CXX>:-Woverloaded-virtual>

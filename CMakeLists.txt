@@ -11,7 +11,8 @@ include(compiler)
 
 find_package(Doxygen)
 
-if (NOT MSVC)
+option(COVERAGE "Generate code coverage data" OFF)
+if (COVERAGE AND NOT MSVC)
     include(CodeCoverage)
     append_coverage_compiler_flags()
 endif ()

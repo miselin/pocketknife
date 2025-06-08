@@ -57,7 +57,8 @@ void gc_destroy(struct gc *gc);
  * garbage collection routines, and for alignment.
  * @param marker An optional function that can be used by the garbage collector when marking the
  * object. This is used when the object is a root object. The implementation of this callback should
- * call gc_mark on any child objects that should be retained.
+ * call gc_mark on any child objects that should be retained. Don't call gc_mark on the object
+ * itself, as it is already marked by the garbage collector.
  * @param eraser An optional function that can be used by the garbage collector when erasing the
  * object. This must not free the object itself, but should free any non-garbage-collected resources
  * within. For example, if the GC object is a structure that includes a pointer allocated by
