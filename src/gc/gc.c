@@ -1,5 +1,6 @@
-#include <assert.h>
 #include <pocketknife/gc/gc.h>
+
+#include <assert.h>
 #include <stdlib.h>
 
 struct gcroot;
@@ -36,12 +37,12 @@ struct gclist_node {
 
 static struct gcnode *gcnode_from_ptr(void *ptr) {
   assert(ptr != NULL);
-  return (struct gcnode *)((char *)ptr - sizeof(struct gcnode));
+  return ((struct gcnode *)ptr) - 1;
 }
 
 static void *gcnode_to_ptr(struct gcnode *node) {
   assert(node != NULL);
-  return (void *)((char *)node + sizeof(struct gcnode));
+  return (void *)(node + 1);
 }
 
 struct gc *gc_create(void) {

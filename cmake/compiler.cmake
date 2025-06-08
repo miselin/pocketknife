@@ -104,3 +104,10 @@ endif()
   message("Enable Undefined Behavior Sanitizer")
   target_link_libraries(cmake_base_compiler_options INTERFACE cmake_ubsan_options)
 endif()
+
+add_library(cmake_public_include_options INTERFACE)
+
+target_include_directories(cmake_public_include_options
+  INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
