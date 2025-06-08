@@ -1,4 +1,4 @@
-add_executable(string_test string_builder_test.cc)
+add_executable(string_test string_builder_test.cc cord_test.cc)
 
 target_link_libraries(string_test string GTest::gtest GTest::gtest_main)
 
