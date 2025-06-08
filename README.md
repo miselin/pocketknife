@@ -12,4 +12,26 @@ little tasks that I can reuse in other projects.
 There's stuff here that's already readily available. Many of these libraries
 are as much a learning exercise as they are a useful tool. That means the
 quality may not be quite production-grade yet, or there may be issues that
-stem from learning by doing. You've been warned :)
+stem from learning by doing. You've been warned :smiley:
+
+## Libraries
+
+### gc
+
+`libgc` provides a rudimentary mark-sweep garbage collector.
+
+### hash
+
+`libhash` provides hashing routines like FNV-1a.
+
+### os
+
+`libos` offers an OS-compatibility layer for other projects to use.
+
+### string
+
+`libstring` offers string manipulation primitives like a C dynamic string builder, and a cord data structure.
+
+### trie
+
+`libtrie` offers a trie for storing key/value pairs with string keys. The use of a trie allows for prefix matching in addition to direct lookup.
