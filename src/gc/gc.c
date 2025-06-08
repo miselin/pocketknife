@@ -217,12 +217,13 @@ void gc_run(struct gc *gc, struct gc_stats *stats) {
       if (node->eraser) {
         node->eraser(gc, gcnode_to_ptr(node));
       }
-      gc->free(node);
 
       gc->stats.total_objects--;
       gc->stats.total_collected++;
       gc->stats.total_freed += node->size;
       gc->stats.total_allocated -= node->size;
+
+      gc->free(node);
 
       if (prev) {
         prev->next = next;
