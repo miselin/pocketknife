@@ -64,40 +64,44 @@ if (ENABLE_PCH)
           )
 endif ()
 
+add_library(cmake_asan_options INTERFACE)
+add_library(cmake_tsan_options INTERFACE)
+add_library(cmake_msan_options INTERFACE)
+add_library(cmake_ubsan_options INTERFACE)
+
+target_compile_options(cmake_asan_options INTERFACE -fsanitize=address -fno-omit-frame-pointer)
+target_link_libraries(cmake_asan_options INTERFACE -fsanitize=address)
+
+target_compile_options(cmake_tsan_options INTERFACE -fsanitize=thread)
+target_link_libraries(cmake_tsan_options INTERFACE -fsanitize=thread)
+
+target_compile_options(cmake_msan_options INTERFACE -fsanitize=memory -fno-omit-frame-pointer)
+target_link_libraries(cmake_msan_options INTERFACE -fsanitize=memory)
+
+target_compile_options(cmake_ubsan_options INTERFACE -fsanitize=undefined)
+target_link_libraries(cmake_ubsan_options INTERFACE -fsanitize=undefined)
+
 option(USE_ASAN "Enable the Address Sanitizers" OFF)
+option(USE_TSAN "Enable the Thread Sanitizers" OFF)
+option(USE_MSAN "Enable the Memory Sanitizers" OFF)
+option(USE_UBSAN "Enable the Undefined Behavior Sanitizers" OFF)
+
 if(USE_ASAN)
   message("Enable Address Sanitizer")
-  target_compile_options(cmake_base_compiler_options INTERFACE
-          -fsanitize=address -fno-omit-frame-pointer)
-  target_link_libraries(cmake_base_compiler_options INTERFACE
-          -fsanitize=address)
-endif()
+  target_link_libraries(cmake_base_compiler_options INTERFACE cmake_asan_options)
+endif ()
 
-option(USE_TSAN "Enable the Thread Sanitizers" OFF)
 if(USE_TSAN)
   message("Enable Thread Sanitizer")
-  target_compile_options(cmake_base_compiler_options INTERFACE
-          -fsanitize=thread)
-  target_link_libraries(cmake_base_compiler_options INTERFACE
-          -fsanitize=thread)
+  target_link_libraries(cmake_base_compiler_options INTERFACE cmake_tsan_options)
 endif()
 
-option(USE_MSAN "Enable the Memory Sanitizers" OFF)
 if(USE_MSAN)
   message("Enable Memory Sanitizer")
-  target_compile_options(cmake_base_compiler_options INTERFACE
-          -fsanitize=memory -fno-omit-frame-pointer)
-  target_link_libraries(cmake_base_compiler_options INTERFACE
-          -fsanitize=memory)
+  target_link_libraries(cmake_base_compiler_options INTERFACE cmake_msan_options)
 endif()
 
-option(USE_UBSAN "Enable the Undefined Behavior Sanitizers" OFF)
-if(USE_UBSAN)
+  if(USE_UBSAN)
   message("Enable Undefined Behavior Sanitizer")
-  target_compile_options(cmake_base_compiler_options INTERFACE
-          -fsanitize=undefined)
-  target_link_libraries(cmake_base_compiler_options INTERFACE
-          -fsanitize=undefined)
+  target_link_libraries(cmake_base_compiler_options INTERFACE cmake_ubsan_options)
 endif()
-
-target_include_directories(cmake_base_compiler_options INTERFACE ${CMAKE_SOURCE_DIR}/include)

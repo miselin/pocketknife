@@ -8,6 +8,7 @@ include(FetchContent)
 FetchContent_Declare(
   googlebenchmark
   URL https://github.com/google/benchmark/archive/refs/tags/v1.9.4.zip
+  DOWNLOAD_EXTRACT_TIMESTAMP NEW
 )
 
 set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)

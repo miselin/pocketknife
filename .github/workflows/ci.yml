@@ -1,0 +1,36 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        asan: [ON, OFF]
+        build_type: [Debug, Release]
+
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get install -y libbenchmark-dev googletest libgtest-dev libzstd-dev libzstd1 libglib2.0-dev
+
+      - uses: lukka/get-cmake@latest
+      - uses: actions/checkout@v4
+      - run: cmake -E make_directory build
+
+      - name: Configure
+        working-directory: build
+        run: cmake ${{ github.workspace }} -DASAN=${{ matrix.asan }} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCOVERAGE=ON
+
+      - name: Build
+        working-directory: build
+        run: cmake --build .
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure -T Test -T Coverage
+
+      - name: Upload coverage data (if any) to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}

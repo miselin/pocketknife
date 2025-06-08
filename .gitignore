@@ -6,6 +6,7 @@ fonts/
 
 # No builds
 build/
+.cache/
 
 # Prerequisites
 *.d
