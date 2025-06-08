@@ -115,7 +115,7 @@ void gc_run(struct gc *gc, struct gc_stats *stats);
  * @param gc The garbage collector instance to use.
  * @param stats A pointer to a gc_stats structure that will be filled with statistics.
  */
-void gc_stats(struct gc *gc, struct gc_stats *stats);
+void gc_get_stats(struct gc *gc, struct gc_stats *stats);
 
 #ifdef __cplusplus
 }  // extern "C"

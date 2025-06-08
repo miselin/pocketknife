@@ -234,7 +234,7 @@ void gc_run(struct gc *gc, struct gc_stats *stats) {
   }
 }
 
-void gc_stats(struct gc *gc, struct gc_stats *stats) {
+void gc_get_stats(struct gc *gc, struct gc_stats *stats) {
   assert(gc != NULL);
   assert(stats != NULL);
 

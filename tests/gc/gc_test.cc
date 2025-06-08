@@ -31,7 +31,7 @@ TEST(GCTest, AllocAndFree) {
   ASSERT_TRUE(ptr != NULL);
 
   struct gc_stats stats;
-  gc_stats(gc, &stats);
+  gc_get_stats(gc, &stats);
 
   ASSERT_EQ(stats.total_objects, 1);
 
@@ -59,7 +59,7 @@ TEST(GCTest, MarkWithCycles) {
   gc_root(gc, obj1);
 
   struct gc_stats stats;
-  gc_stats(gc, &stats);
+  gc_get_stats(gc, &stats);
 
   ASSERT_EQ(stats.total_objects, 2);
 
