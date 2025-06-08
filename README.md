@@ -1,5 +1,8 @@
 # Pocketknife
 
+[![CI](https://github.com/miselin/pocketknife/actions/workflows/ci.yml/badge.svg)](https://github.com/miselin/pocketknife/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/miselin/pocketknife/graph/badge.svg?token=1ZYQM217XJ)](https://codecov.io/gh/miselin/pocketknife)
+
 All the stuff I keep having to reimplement, or that I might need again in the
 future. A pocketknife is a multitasker - this repo is my go-to for all the
 little tasks that I can reuse in other projects.
