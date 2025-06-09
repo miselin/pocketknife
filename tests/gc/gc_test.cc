@@ -265,3 +265,30 @@ TEST(GCTest, CannotCollectLocked) {
 
   gc_destroy(gc);
 }
+
+TEST(GCTest, AllocAndFreeLargeSpace) {
+  struct gc *gc = gc_create_for_test();
+  ASSERT_TRUE(gc != NULL);
+
+  struct gc_space_config large_space_config = {
+      .sweep_every = 1,         // sweep large space more aggressively for testing
+      .max_size = 1024 * 1024,  // 1MB
+  };
+  gc_configure_space(gc, GC_SPACE_LARGE, &large_space_config);
+
+  struct gc_slot *slot = gc_alloc(gc, 4096, NULL, NULL);
+  ASSERT_TRUE(slot != NULL);
+
+  ASSERT_EQ(gc_get_space(slot), GC_SPACE_LARGE);
+
+  struct gc_stats stats;
+  gc_get_stats(gc, &stats);
+
+  ASSERT_EQ(stats.total_objects, 1);
+
+  gc_run(gc, &stats);
+  ASSERT_EQ(stats.total_collected, 1);
+  ASSERT_EQ(stats.total_objects, 0);
+
+  gc_destroy(gc);
+}
