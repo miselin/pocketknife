@@ -237,7 +237,7 @@ struct gc_slot *gc_alloc_with_space(struct gc *gc, size_t size, GCMarkFunc marke
     return NULL;
   }
 
-  struct gc_slot *list_node = gc_space->config.alloc(sizeof(struct gc_slot));
+  struct gc_slot *list_node = gc->config.alloc(sizeof(struct gc_slot));
   if (!list_node) {
     gc_space->config.free(ptr);
     return NULL;
@@ -355,7 +355,8 @@ static void gc_space_run(struct gc *gc, struct gc_space *space) {
     return;
   }
 
-  GCFreeFunc free_func = space->config.free;
+  GCFreeFunc gc_free_func = gc->config.free;
+  GCFreeFunc space_free_func = space->config.free;
 
   space->stats.total_collected = 0;
   space->stats.total_freed = 0;
@@ -411,7 +412,7 @@ static void gc_space_run(struct gc *gc, struct gc_space *space) {
       space->stats.total_freed += node->size;
       space->stats.total_allocated -= node->size;
 
-      free_func(node);
+      space_free_func(node);
 
       if (prev) {
         prev->next = next;
@@ -419,7 +420,7 @@ static void gc_space_run(struct gc *gc, struct gc_space *space) {
         space->nodes = next;
       }
 
-      free_func(nodelist);
+      gc_free_func(nodelist);
     }
 
     nodelist = next;
@@ -453,7 +454,12 @@ void gc_run(struct gc *gc, struct gc_stats *stats) {
 
       int needs_root = gc_unroot(gc, nodelist);
 
-      // TODO: actually move the node object + its data to the old space
+      // Move the node to the old space & clear it out of the young space
+      nodelist->node = old_space->config.alloc(node->size + sizeof(struct gcnode));
+      memcpy(nodelist->node, node, sizeof(struct gcnode) + node->size);
+
+      young_space->config.free(node);
+      node = nodelist->node;
 
       if (prev) {
         prev->next = next;

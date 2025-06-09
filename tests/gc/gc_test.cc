@@ -165,6 +165,12 @@ TEST(GCTest, YoungSpacePromotion) {
   struct gc_slot *slot = gc_alloc(gc, sizeof(struct gc_object), NULL, NULL);
   ASSERT_TRUE(slot != NULL);
 
+  void *young_space_ptr = gc_lock_slot(slot);
+  ASSERT_TRUE(young_space_ptr != NULL);
+  struct gc_object *obj = (struct gc_object *)young_space_ptr;
+  obj->value = 42;
+  gc_unlock_slot(slot);
+
   struct gc_stats stats;
 
   gc_mark(gc, slot);
@@ -184,6 +190,15 @@ TEST(GCTest, YoungSpacePromotion) {
   ASSERT_EQ(stats.total_objects, 1);
   ASSERT_EQ(stats.total_collected, 0);
   ASSERT_EQ(gc_get_space(slot), GC_SPACE_OLD);
+
+  void *old_space_ptr = gc_lock_slot(slot);
+  ASSERT_TRUE(old_space_ptr != NULL);
+  obj = (struct gc_object *)old_space_ptr;
+  gc_unlock_slot(slot);
+
+  // Make sure the object actually moved & retained the value
+  ASSERT_NE(young_space_ptr, old_space_ptr);
+  ASSERT_EQ(obj->value, 42);
 
   gc_run(gc, &stats);
   ASSERT_EQ(stats.total_collected, 1);
