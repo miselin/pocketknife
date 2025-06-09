@@ -143,12 +143,14 @@ void gc_configure_space(struct gc *gc, enum GCSpace space, struct gc_space_confi
   gc_space->config = *config;
 }
 
-static void gc_space_destroy(struct gc_space *space) {
+static void gc_space_destroy(struct gc *gc, struct gc_space *space) {
   assert(space != NULL);
+
+  GCFreeFunc free_func = gc->config.free;
 
   while (space->roots) {
     struct gcroot *next = space->roots->next;
-    free(space->roots);
+    free_func(space->roots);
     space->roots = next;
   }
 
@@ -161,7 +163,7 @@ void gc_destroy(struct gc *gc) {
 
   // Clean up all spaces of their roots so we can perform a full collection
   for (int i = 0; i < 8; ++i) {
-    gc_space_destroy(&gc->spaces[i]);
+    gc_space_destroy(gc, &gc->spaces[i]);
   }
 
   gc_run(gc, NULL);
@@ -197,7 +199,7 @@ struct gc_slot *gc_alloc_with_space(struct gc *gc, size_t size, GCMarkFunc marke
 
   struct gc_slot *list_node = gc->config.alloc(sizeof(struct gc_slot));
   if (!list_node) {
-    free(ptr);
+    gc->config.free(ptr);
     return NULL;
   }
 
@@ -243,7 +245,7 @@ void gc_root(struct gc *gc, struct gc_slot *slot) {
   assert(gc != NULL);
   assert(slot != NULL);
 
-  struct gcroot *root = malloc(sizeof(struct gcroot));
+  struct gcroot *root = gc->config.alloc(sizeof(struct gcroot));
   if (!root) {
     return;
   }
@@ -270,7 +272,7 @@ int gc_unroot(struct gc *gc, struct gc_slot *slot) {
       } else {
         gc->spaces[space].roots = current->next;
       }
-      free(current);
+      gc->config.free(current);
       return 1;
     }
 
