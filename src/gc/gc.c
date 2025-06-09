@@ -74,6 +74,18 @@ static void gc_debugf(struct gc *gc, const char *fmt, ...) {
   va_end(args);
 }
 
+static void sanity_check_space_config(struct gc_space_config *config) {
+  assert(config != NULL);
+  assert(config->sweep_every > 0);
+  assert(config->max_size > 0);
+
+  if (config->alloc == NULL) {
+    assert(config->free == NULL);  // If alloc is default, free must also be default
+  } else {
+    assert(config->free != NULL);  // If alloc is custom, free must also be custom
+  }
+}
+
 static void gc_default_config(struct gc *gc) {
   gc->config.alloc = malloc;
   gc->config.free = free;
@@ -88,8 +100,15 @@ static void gc_default_config(struct gc *gc) {
   gc->spaces[GC_SPACE_LARGE].config.max_size = 1024 * 1024 * 1024;  // 1 GiB large space
 
   for (int i = GC_SPACE_CUSTOM1; i < 8; ++i) {
-    gc->spaces[i].config.sweep_every = 1;
-    gc->spaces[i].config.max_size = 256 * 1024 * 1024;  // 256 MiB custom space
+    gc->spaces[i].config.alloc = gc->config.alloc;
+    gc->spaces[i].config.free = gc->config.free;
+
+    if (i >= GC_SPACE_CUSTOM1) {
+      gc->spaces[i].config.sweep_every = 1;
+      gc->spaces[i].config.max_size = 256 * 1024 * 1024;  // 256 MiB custom space
+    }
+
+    sanity_check_space_config(&gc->spaces[i].config);
   }
 }
 
@@ -118,6 +137,13 @@ struct gc *gc_create_with_allocator(GCAllocateFunc alloc, GCFreeFunc free) {
   gc->config.alloc = alloc;
   gc->config.free = free;
 
+  for (int i = 0; i < 8; ++i) {
+    gc->spaces[i].config.alloc = alloc;
+    gc->spaces[i].config.free = free;
+
+    sanity_check_space_config(&gc->spaces[i].config);
+  }
+
   return gc;
 }
 
@@ -131,6 +157,13 @@ struct gc *gc_create_with_config(struct gc_config *config) {
     gc->config = *config;
   }
 
+  for (int i = 0; i < 8; ++i) {
+    gc->spaces[i].config.alloc = gc->config.alloc;
+    gc->spaces[i].config.free = gc->config.free;
+
+    sanity_check_space_config(&gc->spaces[i].config);
+  }
+
   return gc;
 }
 
@@ -141,6 +174,13 @@ void gc_configure_space(struct gc *gc, enum GCSpace space, struct gc_space_confi
   assert(config != NULL);
 
   gc_space->config = *config;
+
+  if (gc_space->config.alloc == NULL) {
+    gc_space->config.alloc = gc->config.alloc;
+    gc_space->config.free = gc->config.free;
+  }
+
+  sanity_check_space_config(&gc_space->config);
 }
 
 static void gc_space_destroy(struct gc *gc, struct gc_space *space) {
@@ -192,14 +232,14 @@ struct gc_slot *gc_alloc_with_space(struct gc *gc, size_t size, GCMarkFunc marke
 
   struct gc_space *gc_space = &gc->spaces[space];
 
-  void *ptr = gc->config.alloc(size + sizeof(struct gcnode));
+  void *ptr = gc_space->config.alloc(size + sizeof(struct gcnode));
   if (!ptr) {
     return NULL;
   }
 
-  struct gc_slot *list_node = gc->config.alloc(sizeof(struct gc_slot));
+  struct gc_slot *list_node = gc_space->config.alloc(sizeof(struct gc_slot));
   if (!list_node) {
-    gc->config.free(ptr);
+    gc_space->config.free(ptr);
     return NULL;
   }
 
@@ -245,34 +285,34 @@ void gc_root(struct gc *gc, struct gc_slot *slot) {
   assert(gc != NULL);
   assert(slot != NULL);
 
-  struct gcroot *root = gc->config.alloc(sizeof(struct gcroot));
+  struct gc_space *space = &gc->spaces[slot->node->flags.space];
+
+  struct gcroot *root = space->config.alloc(sizeof(struct gcroot));
   if (!root) {
     return;
   }
 
-  enum GCSpace space = slot->node->flags.space;
-
   root->slot = slot;
-  root->next = gc->spaces[space].roots;
-  gc->spaces[space].roots = root;
+  root->next = space->roots;
+  space->roots = root;
 }
 
 int gc_unroot(struct gc *gc, struct gc_slot *slot) {
   assert(gc != NULL);
   assert(slot != NULL);
 
-  enum GCSpace space = slot->node->flags.space;
+  struct gc_space *space = &gc->spaces[slot->node->flags.space];
 
-  struct gcroot *current = gc->spaces[space].roots;
+  struct gcroot *current = space->roots;
   struct gcroot *prev = NULL;
   while (current) {
     if (current->slot == slot) {
       if (prev) {
         prev->next = current->next;
       } else {
-        gc->spaces[space].roots = current->next;
+        space->roots = current->next;
       }
-      gc->config.free(current);
+      space->config.free(current);
       return 1;
     }
 
@@ -315,7 +355,7 @@ static void gc_space_run(struct gc *gc, struct gc_space *space) {
     return;
   }
 
-  GCFreeFunc free_func = gc->config.free;
+  GCFreeFunc free_func = space->config.free;
 
   space->stats.total_collected = 0;
   space->stats.total_freed = 0;
@@ -349,8 +389,8 @@ static void gc_space_run(struct gc *gc, struct gc_space *space) {
     struct gcnode *node = nodelist->node;
     if (node->flags.locked) {
       // We can't do anything with this node.
-      // We won't increment the survived count, as it technically hasn't survived a cycle, it's just
-      // currently locked.
+      // We won't increment the survived count, as it technically hasn't survived a cycle, it's
+      // just currently locked.
       gc_debugf(gc, "gc: skipping locked object %p (%zd bytes)\n", (void *)node, node->size);
     } else if (node->flags.marked) {
       node->flags.marked = 0;

@@ -41,6 +41,8 @@ struct gc_config {
   int debug;
 
   // Function used to allocate memory within the garbage collector. Defaults to malloc().
+  // While spaces can specify their own allocators, this allocator is used by default and is also
+  // used for GC-internal allocations (e.g. the struct gc object itself).
   GCAllocateFunc alloc;
   // Function used to free memory allocated by the garbage collector. Defaults to free().
   GCFreeFunc free;
@@ -61,6 +63,12 @@ struct gc_space_config {
   // to collect in this space, and if that is insufficient, it will run on the entire garbage
   // collector.
   size_t max_size;
+
+  // Specific allocator for this space. If not set, the global GC allocator will be used.
+  GCAllocateFunc alloc;
+
+  // Specific deallocator for this space. If not set, the global GC deallocator will be used.
+  GCFreeFunc free;
 };
 
 struct gc_stats {
