@@ -172,7 +172,12 @@ void gc_destroy(struct gc *gc) {
 }
 
 struct gc_slot *gc_alloc(struct gc *gc, size_t size, GCMarkFunc marker, GCEraseFunc eraser) {
-  return gc_alloc_with_space(gc, size, marker, eraser, GC_SPACE_YOUNG);
+  enum GCSpace space = GC_SPACE_YOUNG;
+  if (size >= gc->config.large_threshold) {
+    space = GC_SPACE_LARGE;
+  }
+
+  return gc_alloc_with_space(gc, size, marker, eraser, space);
 }
 
 struct gc_slot *gc_alloc_with_space(struct gc *gc, size_t size, GCMarkFunc marker,
