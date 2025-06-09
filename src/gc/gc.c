@@ -40,7 +40,7 @@ struct gcnode {
   GCMarkFunc marker;
   GCEraseFunc eraser;
 
-  size_t size;
+  struct gc_slot *slot;
 
   union {
     struct {
@@ -52,8 +52,10 @@ struct gcnode {
       uint64_t space : 3;
       // # of cycles the object has lived in its current space (will not wrap around to zero)
       uint64_t survived : 8;
-    } flags;
-    uint64_t value;
+      // Size of the object in bytes
+      uint64_t size : 51;
+    };
+    uint64_t meta;
   };
 } __attribute__((packed)) __attribute__((aligned(8)));
 
@@ -228,6 +230,19 @@ struct gc_slot *gc_alloc_with_space(struct gc *gc, size_t size, GCMarkFunc marke
 
   if (size == 0) {
     return NULL;
+  } else if (size > gc->spaces[space].config.max_size) {
+    // If the size exceeds the maximum size of the space, we cannot allocate it here
+    return NULL;
+  } else if (space < 0 || space >= 8) {
+    // Invalid space
+    return NULL;
+  } else if (size >= (1ULL << 51ULL)) {
+    // Can't fit in our metadata
+    gc_debugf(gc,
+              "gc: cannot allocate %zu bytes in space %d, size exceeds maximum possible for a "
+              "single node\n",
+              size, space);
+    return NULL;
   }
 
   struct gc_space *gc_space = &gc->spaces[space];
@@ -246,9 +261,10 @@ struct gc_slot *gc_alloc_with_space(struct gc *gc, size_t size, GCMarkFunc marke
   struct gcnode *node = (struct gcnode *)ptr;
   node->marker = marker;
   node->eraser = eraser;
+  node->meta = 0;
   node->size = size;
-  node->value = 0;
-  node->flags.space = space;
+  node->space = space;
+  node->slot = list_node;
 
   gc_space->stats.total_allocated += size;
   gc_space->stats.total_objects++;
@@ -265,11 +281,11 @@ void *gc_lock_slot(struct gc_slot *slot) {
 
   struct gcnode *node = slot->node;
 
-  if (node->flags.locked) {
+  if (node->locked) {
     return NULL;
   }
 
-  node->flags.locked = 1;
+  node->locked = 1;
   return (void *)(node + 1);
 }
 
@@ -278,14 +294,14 @@ void gc_unlock_slot(struct gc_slot *slot) {
 
   struct gcnode *node = slot->node;
 
-  node->flags.locked = 0;
+  node->locked = 0;
 }
 
 void gc_root(struct gc *gc, struct gc_slot *slot) {
   assert(gc != NULL);
   assert(slot != NULL);
 
-  struct gc_space *space = &gc->spaces[slot->node->flags.space];
+  struct gc_space *space = &gc->spaces[slot->node->space];
 
   struct gcroot *root = space->config.alloc(sizeof(struct gcroot));
   if (!root) {
@@ -301,7 +317,7 @@ int gc_unroot(struct gc *gc, struct gc_slot *slot) {
   assert(gc != NULL);
   assert(slot != NULL);
 
-  struct gc_space *space = &gc->spaces[slot->node->flags.space];
+  struct gc_space *space = &gc->spaces[slot->node->space];
 
   struct gcroot *current = space->roots;
   struct gcroot *prev = NULL;
@@ -327,10 +343,10 @@ int gc_mark(struct gc *gc, struct gc_slot *slot) {
   assert(gc != NULL);
   assert(slot != NULL);
 
-  enum GCSpace space = slot->node->flags.space;
+  enum GCSpace space = slot->node->space;
 
-  int marked = slot->node->flags.marked;
-  slot->node->flags.marked = 1;
+  int marked = slot->node->marked;
+  slot->node->marked = 1;
 
   if (marked) {
     return 0;
@@ -367,10 +383,10 @@ static void gc_space_run(struct gc *gc, struct gc_space *space) {
   while (current) {
     struct gc_slot *slot = current->slot;
     struct gcnode *node = slot->node;
-    if (!node->flags.marked) {
+    if (!node->marked) {
       gc_debugf(gc, "gc: marking root %p (%zd bytes)\n", (void *)node, node->size);
 
-      node->flags.marked = 1;
+      node->marked = 1;
       space->stats.total_marked++;
 
       if (node->marker) {
@@ -388,18 +404,18 @@ static void gc_space_run(struct gc *gc, struct gc_space *space) {
     struct gc_slot *next = nodelist->next;
 
     struct gcnode *node = nodelist->node;
-    if (node->flags.locked) {
+    if (node->locked) {
       // We can't do anything with this node.
       // We won't increment the survived count, as it technically hasn't survived a cycle, it's
       // just currently locked.
       gc_debugf(gc, "gc: skipping locked object %p (%zd bytes)\n", (void *)node, node->size);
-    } else if (node->flags.marked) {
-      node->flags.marked = 0;
-      if (node->flags.survived < 255) {
-        node->flags.survived++;
+    } else if (node->marked) {
+      node->marked = 0;
+      if (node->survived < 255) {
+        node->survived++;
       }
       gc_debugf(gc, "gc: skipping marked object %p (%zd bytes, survived %d cycles)\n", (void *)node,
-                node->size, node->flags.survived);
+                node->size, node->survived);
     } else {
       gc_debugf(gc, "gc: collecting unmarked object %p (%zd bytes)\n", (void *)node, node->size);
 
@@ -447,7 +463,7 @@ void gc_run(struct gc *gc, struct gc_stats *stats) {
     struct gc_slot *next = nodelist->next;
 
     struct gcnode *node = nodelist->node;
-    if (node->flags.survived > gc->config.young_max_cycles) {
+    if (node->survived > gc->config.young_max_cycles) {
       gc_debugf(gc,
                 "gc: promoting slot %p (object %p of %zd bytes) from young space to old space\n",
                 (void *)nodelist, (void *)node, node->size);
@@ -476,8 +492,8 @@ void gc_run(struct gc *gc, struct gc_stats *stats) {
       young_space->stats.total_allocated -= node->size;
       young_space->stats.total_freed += node->size;
 
-      node->flags.survived = 0;
-      node->flags.space = GC_SPACE_OLD;
+      node->survived = 0;
+      node->space = GC_SPACE_OLD;
 
       if (needs_root) {
         gc_debugf(gc, "gc: re-rooting object %p in old space\n", (void *)node);
@@ -509,5 +525,5 @@ void gc_get_stats(struct gc *gc, struct gc_stats *stats) {
 
 enum GCSpace gc_get_space(struct gc_slot *slot) {
   assert(slot != NULL);
-  return slot->node->flags.space;
+  return slot->node->space;
 }
