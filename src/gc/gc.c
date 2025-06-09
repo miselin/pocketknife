@@ -255,7 +255,7 @@ void gc_root(struct gc *gc, struct gc_slot *slot) {
   gc->spaces[space].roots = root;
 }
 
-void gc_unroot(struct gc *gc, struct gc_slot *slot) {
+int gc_unroot(struct gc *gc, struct gc_slot *slot) {
   assert(gc != NULL);
   assert(slot != NULL);
 
@@ -271,12 +271,14 @@ void gc_unroot(struct gc *gc, struct gc_slot *slot) {
         gc->spaces[space].roots = current->next;
       }
       free(current);
-      return;
+      return 1;
     }
 
     prev = current;
     current = current->next;
   }
+
+  return 0;
 }
 
 int gc_mark(struct gc *gc, struct gc_slot *slot) {
@@ -407,8 +409,9 @@ void gc_run(struct gc *gc, struct gc_stats *stats) {
                 "gc: promoting slot %p (object %p of %zd bytes) from young space to old space\n",
                 (void *)nodelist, (void *)node, node->size);
 
+      int needs_root = gc_unroot(gc, nodelist);
+
       // TODO: actually move the node object + its data to the old space
-      // TODO: move roots as well, if any
 
       if (prev) {
         prev->next = next;
@@ -427,6 +430,11 @@ void gc_run(struct gc *gc, struct gc_stats *stats) {
 
       node->flags.survived = 0;
       node->flags.space = GC_SPACE_OLD;
+
+      if (needs_root) {
+        gc_debugf(gc, "gc: re-rooting object %p in old space\n", (void *)node);
+        gc_root(gc, nodelist);
+      }
     }
 
     nodelist = next;
@@ -453,6 +461,5 @@ void gc_get_stats(struct gc *gc, struct gc_stats *stats) {
 
 enum GCSpace gc_get_space(struct gc_slot *slot) {
   assert(slot != NULL);
-  fprintf(stderr, "gc_get_space: slot %p, node %p\n", (void *)slot, (void *)slot->node);
   return slot->node->flags.space;
 }

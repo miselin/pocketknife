@@ -192,6 +192,50 @@ TEST(GCTest, YoungSpacePromotion) {
   gc_destroy(gc);
 }
 
+TEST(GCTest, YoungSpacePromotionWithRoot) {
+  struct gc *gc = gc_create_for_test();
+  ASSERT_TRUE(gc != NULL);
+
+  struct gc_space_config old_space_config = {
+      .sweep_every = 1,         // sweep old space more aggressively for testing
+      .max_size = 1024 * 1024,  // 1MB
+  };
+  gc_configure_space(gc, GC_SPACE_OLD, &old_space_config);
+
+  struct gc_slot *slot = gc_alloc(gc, sizeof(struct gc_object), NULL, NULL);
+  ASSERT_TRUE(slot != NULL);
+
+  gc_root(gc, slot);
+
+  struct gc_stats stats;
+
+  gc_mark(gc, slot);
+  gc_run(gc, &stats);
+  ASSERT_EQ(stats.total_objects, 1);
+  ASSERT_EQ(stats.total_collected, 0);
+  ASSERT_EQ(gc_get_space(slot), GC_SPACE_YOUNG);
+
+  gc_mark(gc, slot);
+  gc_run(gc, &stats);
+  ASSERT_EQ(stats.total_objects, 1);
+  ASSERT_EQ(stats.total_collected, 0);
+  ASSERT_EQ(gc_get_space(slot), GC_SPACE_YOUNG);
+
+  gc_mark(gc, slot);
+  gc_run(gc, &stats);
+  ASSERT_EQ(stats.total_objects, 1);
+  ASSERT_EQ(stats.total_collected, 0);
+  ASSERT_EQ(gc_get_space(slot), GC_SPACE_OLD);
+
+  gc_unroot(gc, slot);
+
+  gc_run(gc, &stats);
+  ASSERT_EQ(stats.total_collected, 1);
+  ASSERT_EQ(stats.total_objects, 0);
+
+  gc_destroy(gc);
+}
+
 TEST(GCTest, CannotCollectLocked) {
   struct gc *gc = gc_create_for_test();
   ASSERT_TRUE(gc != NULL);

@@ -185,8 +185,9 @@ void gc_root(struct gc *gc, struct gc_slot *slot);
  *
  * @param gc The garbage collector instance to use.
  * @param ptr The pointer to the object to remove as a root object.
+ * @return int 1 if the object was previously a root object, 0 if it was not.
  */
-void gc_unroot(struct gc *gc, struct gc_slot *slot);
+int gc_unroot(struct gc *gc, struct gc_slot *slot);
 
 /**
  * @brief Set the marked flag on the given object in the garbage collector.
