@@ -1,0 +1,4 @@
+add_library(alloc STATIC allocator.c)
+add_library(alloc_shared SHARED allocator.c)
+target_link_libraries(alloc INTERFACE cmake_base_compiler_options INTERFACE cmake_public_include_options)
+target_link_libraries(alloc_shared INTERFACE cmake_base_compiler_options INTERFACE cmake_public_include_options)
