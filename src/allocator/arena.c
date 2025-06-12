@@ -26,6 +26,7 @@ void *arena_alloc(struct arena *arena) {
       arena->free_list = new_block_struct;
     }
 
+    new_page_meta->base = new_block;
     new_page_meta->bitmap = 0;
     new_page_meta->used_count = 0;
     new_page_meta->free_count = arena->blocks_per_page;
@@ -54,7 +55,7 @@ void arena_free(struct arena *arena, void *ptr) {
 
   struct arena_page *page = arena->pages;
   while (page) {
-    if ((char *)ptr >= (char *)page && (char *)ptr < (char *)page + 4096) {
+    if ((char *)ptr >= (char *)page->base && (char *)ptr < (char *)page->base + 4096) {
       // Found the page containing the pointer
       break;
     }

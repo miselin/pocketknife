@@ -17,6 +17,7 @@ struct block {
 };
 
 struct arena_page {
+  void *base;
   uint64_t bitmap;
   size_t used_count;
   size_t free_count;
