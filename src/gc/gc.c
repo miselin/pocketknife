@@ -258,11 +258,13 @@ struct gc_slot *gc_alloc_with_space(struct gc *gc, size_t size, GCMarkFunc marke
     return NULL;
   }
 
+  assert(size <= (1ULL << 32ULL));
+
   struct gcnode *node = (struct gcnode *)ptr;
   node->marker = marker;
   node->eraser = eraser;
   node->meta = 0;
-  node->size = size;
+  node->size = (uint32_t)size;
   node->space = space;
   node->slot = list_node;
 
@@ -384,7 +386,7 @@ static void gc_space_run(struct gc *gc, struct gc_space *space) {
     struct gc_slot *slot = current->slot;
     struct gcnode *node = slot->node;
     if (!node->marked) {
-      gc_debugf(gc, "gc: marking root %p (%zd bytes)\n", (void *)node, node->size);
+      gc_debugf(gc, "gc: marking root %p (%zd bytes)\n", (void *)node, (size_t)node->size);
 
       node->marked = 1;
       space->stats.total_marked++;
@@ -408,16 +410,18 @@ static void gc_space_run(struct gc *gc, struct gc_space *space) {
       // We can't do anything with this node.
       // We won't increment the survived count, as it technically hasn't survived a cycle, it's
       // just currently locked.
-      gc_debugf(gc, "gc: skipping locked object %p (%zd bytes)\n", (void *)node, node->size);
+      gc_debugf(gc, "gc: skipping locked object %p (%zd bytes)\n", (void *)node,
+                (size_t)node->size);
     } else if (node->marked) {
       node->marked = 0;
       if (node->survived < 255) {
         node->survived++;
       }
       gc_debugf(gc, "gc: skipping marked object %p (%zd bytes, survived %d cycles)\n", (void *)node,
-                node->size, node->survived);
+                (size_t)node->size, node->survived);
     } else {
-      gc_debugf(gc, "gc: collecting unmarked object %p (%zd bytes)\n", (void *)node, node->size);
+      gc_debugf(gc, "gc: collecting unmarked object %p (%zd bytes)\n", (void *)node,
+                (size_t)node->size);
 
       if (node->eraser) {
         node->eraser(gc, nodelist);
@@ -466,7 +470,7 @@ void gc_run(struct gc *gc, struct gc_stats *stats) {
     if (node->survived > gc->config.young_max_cycles) {
       gc_debugf(gc,
                 "gc: promoting slot %p (object %p of %zd bytes) from young space to old space\n",
-                (void *)nodelist, (void *)node, node->size);
+                (void *)nodelist, (void *)node, (size_t)node->size);
 
       int needs_root = gc_unroot(gc, nodelist);
 
